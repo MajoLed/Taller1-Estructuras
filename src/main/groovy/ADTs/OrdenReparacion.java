@@ -15,7 +15,7 @@ public class OrdenReparacion {
     private int idOrden;
     private String descripcion;
     private Estado estadoActual;
-    Servicio tipoServicio; //No tiene metodo de acceso por encapsulacion, por definición igual es privada
+    Servicio tipoServicio; //No tiene metodo de acceso por encapsulacion, por definición igual es privada.
     Cliente cliente; //dueño del vehículo
     private Mecanico mecanicoAsignado;
     private LocalDateTime fechaIngreso;
