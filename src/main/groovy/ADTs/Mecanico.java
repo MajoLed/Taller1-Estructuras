@@ -9,7 +9,7 @@ package ADTs;
 
 public class Mecanico {
 
-    enum Especialidad {Motor, Frenos, Electricidad, Carroceria, Bujías}
+    public enum Especialidad {Motor, Frenos, Electricidad, Carroceria, Bujías}
 
     private int id;
     private String nombre; //nombre completo
@@ -31,13 +31,17 @@ public class Mecanico {
 
     public void asignarOrden(OrdenReparacion orden){
 
+        if (orden == null) //Verifico que la orden que mehayn pasado sea válida
+            throw new IllegalArgumentException("La orden está vacía");
+
         if ( ordenAsignada == null && estaDisponible() ){
             ordenAsignada = orden;
             disponible = false;
         }
         else {
-            System.out.println("El mecanico está ocupado");
+            throw new IllegalArgumentException("El mecánico está ocupado");
         }
+
     }
 
     public void completarOrden(){
@@ -62,11 +66,15 @@ public class Mecanico {
 
     }
 
+    public boolean isDisponible() {
+        return disponible;
+    }
+
+    //Getters
     public int getId() {
         return id;
     }
 
-    //Getters
     public String getNombre() {
         return nombre;
     }
