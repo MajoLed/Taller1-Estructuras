@@ -5,6 +5,7 @@ package ADTs;
  * Estructuras de Datos y Algoritmos - 2026-20
  *
  * María José Ledesma Cordoba - ID:000559241
+ * Miguel Angel Puente Mejia - ID:000559418
  */
 
 class Cliente {
