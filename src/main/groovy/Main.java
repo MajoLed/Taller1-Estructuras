@@ -2,7 +2,7 @@ public class Main {
 
     public static void main(String[] args) {
 
-        // Pruebas de Cliente
+// Pruebas de Cliente
 
 Cliente cliente = new Cliente(
         "Juan Pérez",
@@ -33,16 +33,34 @@ assert cliente.getTelefono().equals("3109876543");
 cliente.setPlacaVehiculo("XYZ789");
 assert cliente.getPlacaVehiculo().equals("XYZ789");
 
-// Validación de correo inválido
-cliente.setEmail("correo-invalido");
-
+// Validación de nombre vacío
 try {
+    cliente.setNombre("");
+    assert false : "Debía lanzar IllegalArgumentException";
+} catch (IllegalArgumentException e) {
+    assert true;
+}
+
+// Validación de nombre null
+try {
+    cliente.setNombre(null);
+    assert false : "Debía lanzar IllegalArgumentException";
+} catch (IllegalArgumentException e) {
+    assert true;
+}
+
+// Validación de correo inválido
+try {
+    cliente.setEmail("correo-invalido");
     cliente.getEmail();
     assert false : "Debía lanzar IllegalArgumentException";
 } catch (IllegalArgumentException e) {
     assert true;
 }
-        
+
+// Restaurar correo válido para continuar las pruebas
+cliente.setEmail("pedro@gmail.com");
+assert cliente.getEmail().equals("pedro@gmail.com");
 
         // Pruebas de Mecanico
 
