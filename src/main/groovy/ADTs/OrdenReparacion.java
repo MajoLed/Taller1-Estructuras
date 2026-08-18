@@ -138,6 +138,7 @@ public class OrdenReparacion {
     public LocalDateTime getFechaFinalizacion() {
         return fechaFinalizacion;
     }
+
     //endregion
 
     //Heredable
