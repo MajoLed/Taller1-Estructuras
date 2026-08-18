@@ -1,5 +1,6 @@
 package ADTs;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 /*
@@ -14,16 +15,16 @@ public class OrdenReparacion {
     private int idOrden;
     private String descripcion;
     private Estado estadoActual;
-    private Servicio tipoServicio;
-    private Cliente cliente; //dueño del vehículo
+    Servicio tipoServicio; //No tiene metodo de acceso por encapsulacion, el
+    Cliente cliente; //dueño del vehículo
     private Mecanico mecanicoAsignado;
     private LocalDateTime fechaIngreso;
     private LocalDateTime fechaFinalizacion;
 
     private static int contador;
 
-    enum Estado {Recibida, Asignada, EnReparacion, Reparada, Entregada};
-    enum Servicio {Motor, Electricidad, Frenos, Carroceria, Llantas};
+    enum Estado {Recibida, Asignada, EnReparacion, Reparada, Entregada}
+    enum Servicio {Motor, Electricidad, Frenos, Carroceria, Llantas}
 
     public OrdenReparacion(String descripcion, Servicio tipoServicio, Cliente cliente) {
         idOrden = contador++;
@@ -35,6 +36,8 @@ public class OrdenReparacion {
         this.fechaIngreso = LocalDateTime.now();
         this.fechaFinalizacion = null;
     }
+
+    // region Métodos
 
     public void asignarMecanico(Mecanico mecanico){
 
@@ -87,15 +90,68 @@ public class OrdenReparacion {
         fechaFinalizacion = LocalDateTime.now();
     }
 
-    public void entregar(){
-        if (estadoActual != Estado.Reparada)
+    public void entregar() {
+        if (estadoActual != Estado.Reparada) {
             throw new IllegalStateException("La orden debe estar reparada para entregarla");
+        }
 
         estadoActual = Estado.Entregada;
     }
 
-    public void tiempoEnTaller(){
-
+    public Duration tiempoEnTaller() {
+        // Se tienen los 2 casos de reparacion
+        LocalDateTime fin = (fechaFinalizacion != null) ? fechaFinalizacion : LocalDateTime.now();
+        return Duration.between(fechaIngreso, fin);
     }
 
+    //endregion
+
+    //region Getters
+    public int getIdOrden() {
+        return idOrden;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public Estado getEstadoActual() {
+        return estadoActual;
+    }
+
+    public Servicio getTipoServicio() {
+        return tipoServicio;
+    }
+
+    public Cliente getCliente() {
+        return cliente;
+    }
+
+    public Mecanico getMecanicoAsignado() {
+        return mecanicoAsignado;
+    }
+
+    public LocalDateTime getFechaIngreso() {
+        return fechaIngreso;
+    }
+
+    public LocalDateTime getFechaFinalizacion() {
+        return fechaFinalizacion;
+    }
+    //endregion
+
+    //Heredable
+    @Override
+    public String toString() {
+        return "OrdenReparacion{" +
+                "idOrden=" + idOrden +
+                ", descripcion='" + descripcion + '\'' +
+                ", estadoActual=" + estadoActual +
+                ", tipoServicio=" + tipoServicio +
+                ", cliente=" + cliente +
+                ", mecanicoAsignado=" + mecanicoAsignado +
+                ", fechaIngreso=" + fechaIngreso +
+                ", fechaFinalizacion=" + fechaFinalizacion +
+                '}';
+    }
 }
