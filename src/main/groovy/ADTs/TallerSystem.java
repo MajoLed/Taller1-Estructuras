@@ -1,8 +1,11 @@
 package ADTs;
 
-import java.util.EnumMap;
+import Estructuras.Bag;
+import Estructuras.List;
+import Estructuras.Queue;
+
+import java.time.Duration;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.NoSuchElementException;
 
 /*
@@ -34,9 +37,10 @@ public class TallerSystem {
 
     private Queue<OrdenReparacion> ordenesPendientes;
     private Bag<OrdenReparacion> todasLasOrdenes;
-    private List<OrdenReparacion> historial;
+    private List<OrdenReparacion> historial; // más reciente al frente
     private Bag<Mecanico> mecanicos;
     private Bag<OrdenReparacion.Servicio> tiposServicio;
+    private int proximoOrdenId;
 
     public TallerSystem() {
         this.ordenesPendientes = new Queue<>();
@@ -44,14 +48,11 @@ public class TallerSystem {
         this.historial = new List<>();
         this.mecanicos = new Bag<>();
         this.tiposServicio = new Bag<>();
+        this.proximoOrdenId = 0;
     }
 
     // region Gestión de órdenes
 
-    /**
-     * Crea una nueva orden y la registra en el sistema y en la cola de
-     * pendientes. Precondición: tipoServicio debe existir en tiposServicio.
-     */
     public OrdenReparacion crearOrden(String descripcion, OrdenReparacion.Servicio tipoServicio, Cliente cliente) {
         if (tipoServicio == null || !tiposServicio.contiene(tipoServicio)) {
             throw new IllegalArgumentException(
@@ -59,41 +60,48 @@ public class TallerSystem {
             );
         }
 
-        OrdenReparacion nuevaOrden = new OrdenReparacion(descripcion, tipoServicio, cliente);
+        int id = proximoOrdenId++;
+        OrdenReparacion nuevaOrden = new OrdenReparacion(id, descripcion, tipoServicio, cliente);
         todasLasOrdenes.agregar(nuevaOrden);
         ordenesPendientes.encolar(nuevaOrden);
         return nuevaOrden;
     }
 
-    /**
-     * Toma la siguiente orden de la cola FIFO y la asigna al primer mecánico
-     * disponible con la especialidad requerida. Si no hay ninguno
-     * disponible, la orden vuelve a la cola (al final, dada la API de
-     * Queue) y el método retorna null.
-     */
     public OrdenReparacion asignarOrdenAutomatica() {
         if (ordenesPendientes.esVacia()) {
             throw new NoSuchElementException("No hay órdenes pendientes por asignar");
         }
 
-        OrdenReparacion siguiente = ordenesPendientes.desencolar();
+        OrdenReparacion siguiente = ordenesPendientes.verFrente();
+        while (siguiente.getEstadoActual() != OrdenReparacion.Estado.Recibida) {
+            ordenesPendientes.desencolar();
+            if (ordenesPendientes.esVacia()) {
+                throw new NoSuchElementException("No hay órdenes pendientes por asignar");
+            }
+            siguiente = ordenesPendientes.verFrente();
+        }
+
         Mecanico elegido = buscarMecanicoDisponible(siguiente.getTipoServicio());
 
         if (elegido == null) {
-            ordenesPendientes.encolar(siguiente);
-            return null;
+            return null; // permanece en la cola, al frente
         }
 
+        ordenesPendientes.desencolar();
         vincularOrdenYMecanico(siguiente, elegido);
         return siguiente;
     }
 
-    /** Asigna una orden a un mecánico específico, sin pasar por la cola. */
     public void asignarOrdenManual(OrdenReparacion orden, Mecanico mecanico) {
         if (orden == null || mecanico == null) {
             throw new IllegalArgumentException("La orden y el mecánico no pueden ser null");
         }
-
+        if (!todasLasOrdenes.contiene(orden)) {
+            throw new IllegalArgumentException("La orden no pertenece a este taller");
+        }
+        if (!mecanicos.contiene(mecanico)) {
+            throw new IllegalArgumentException("El mecánico no pertenece a este taller");
+        }
         if (!mecanico.estaDisponible()) {
             throw new IllegalStateException("El mecánico no está disponible");
         }
@@ -106,10 +114,6 @@ public class TallerSystem {
         orden.cambiarEstado(nuevoEstado);
     }
 
-    /**
-     * Marca la orden como Reparada, libera al mecánico y la agrega al
-     * inicio del historial.
-     */
     public void finalizarOrden(int ordenId) {
         OrdenReparacion orden = buscarOrdenPorId(ordenId);
         orden.finalizarReparacion();
@@ -129,9 +133,6 @@ public class TallerSystem {
 
     private Mecanico buscarMecanicoDisponible(OrdenReparacion.Servicio servicio) {
         for (Mecanico mecanico : mecanicos) {
-            // Especialidad (Mecanico) y Servicio (OrdenReparacion) son enums
-            // distintos; se comparan por nombre porque comparten los mismos
-            // valores textuales para las especialidades que sí cubren.
             if (mecanico.estaDisponible() && mecanico.getEspecialidad().name().equals(servicio.name())) {
                 return mecanico;
             }
@@ -140,7 +141,8 @@ public class TallerSystem {
     }
 
     private void vincularOrdenYMecanico(OrdenReparacion orden, Mecanico mecanico) {
-        orden.asignarMecanico(mecanico); // esto ya enlaza también al mecánico con la orden
+        orden.asignarMecanico(mecanico);
+        mecanico.asignarOrden(orden);
     }
 
     private OrdenReparacion buscarOrdenPorId(int ordenId) {
@@ -167,6 +169,9 @@ public class TallerSystem {
         if (tipo == null) {
             throw new IllegalArgumentException("El tipo de servicio no puede ser null");
         }
+        if (tiposServicio.contiene(tipo)) {
+            throw new IllegalArgumentException("El tipo de servicio ya está registrado: " + tipo);
+        }
         tiposServicio.agregar(tipo);
     }
 
@@ -174,12 +179,10 @@ public class TallerSystem {
 
     // region Consultas y reportes (iteradores)
 
-    /** Órdenes pendientes en orden FIFO real (solo lectura). */
     public Iterator<OrdenReparacion> obtenerOrdenesPendientes() {
         return ordenesPendientes.iterator();
     }
 
-    /** Historial de finalizadas, de la más reciente a la más antigua. */
     public Iterator<OrdenReparacion> obtenerHistorial() {
         return historial.iterator();
     }
@@ -202,23 +205,75 @@ public class TallerSystem {
         if (mecanico == null) {
             throw new IllegalArgumentException("El mecánico no puede ser null");
         }
+        if (!mecanicos.contiene(mecanico)) {
+            throw new IllegalArgumentException("El mecánico no pertenece a este taller");
+        }
         return mecanico.getOrdenAsignada();
     }
 
-    /** Cantidad de órdenes registradas por cada estado. */
-    public Map<OrdenReparacion.Estado, Integer> generarEstadisticas() {
-        Map<OrdenReparacion.Estado, Integer> estadisticas = new EnumMap<>(OrdenReparacion.Estado.class);
-        for (OrdenReparacion.Estado estado : OrdenReparacion.Estado.values()) {
-            estadisticas.put(estado, 0);
-        }
+    public Estadisticas generarEstadisticas() {
+
+        int pendientes = 0, asignadas = 0, enReparacion = 0, reparadas = 0, entregadas = 0;
+        Duration sumaTiempos = Duration.ZERO;
+        int finalizadas = 0;
+
         for (OrdenReparacion orden : todasLasOrdenes) {
-            estadisticas.merge(orden.getEstadoActual(), 1, Integer::sum);
+            switch (orden.getEstadoActual()) {
+                case Recibida -> pendientes++;
+                case Asignada -> asignadas++;
+                case EnReparacion -> enReparacion++;
+                case Reparada -> reparadas++;
+                case Entregada -> entregadas++;
+            }
+
+            if (orden.getFechaFinalizacion() != null) {
+                sumaTiempos = sumaTiempos.plus(orden.tiempoEnTaller());
+                finalizadas++;
+            }
         }
-        return estadisticas;
+
+        Duration tiempoPromedio = (finalizadas == 0) ? Duration.ZERO : sumaTiempos.dividedBy(finalizadas);
+
+        return new Estadisticas(todasLasOrdenes.tamano(), pendientes, asignadas,
+                enReparacion, reparadas, entregadas, tiempoPromedio);
     }
 
     public int totalOrdenes() {
         return todasLasOrdenes.tamano();
+    }
+
+    public static class Estadisticas {
+        public final int totalOrdenes;
+        public final int ordenesRecibidas;
+        public final int ordenesAsignadas;
+        public final int ordenesEnReparacion;
+        public final int ordenesReparadas;
+        public final int ordenesEntregadas;
+        public final Duration tiempoPromedioReparacion;
+
+        public Estadisticas(int totalOrdenes, int ordenesRecibidas, int ordenesAsignadas,
+                            int ordenesEnReparacion, int ordenesReparadas, int ordenesEntregadas,
+                            Duration tiempoPromedioReparacion) {
+            this.totalOrdenes = totalOrdenes;
+            this.ordenesRecibidas = ordenesRecibidas;
+            this.ordenesAsignadas = ordenesAsignadas;
+            this.ordenesEnReparacion = ordenesEnReparacion;
+            this.ordenesReparadas = ordenesReparadas;
+            this.ordenesEntregadas = ordenesEntregadas;
+            this.tiempoPromedioReparacion = tiempoPromedioReparacion;
+        }
+
+        @Override
+        public String toString() {
+            return "Estadisticas{total=" + totalOrdenes +
+                    ", recibidas=" + ordenesRecibidas +
+                    ", asignadas=" + ordenesAsignadas +
+                    ", enReparacion=" + ordenesEnReparacion +
+                    ", reparadas=" + ordenesReparadas +
+                    ", entregadas=" + ordenesEntregadas +
+                    ", tiempoPromedioReparacion=" + tiempoPromedioReparacion +
+                    '}';
+        }
     }
 
     // endregion
