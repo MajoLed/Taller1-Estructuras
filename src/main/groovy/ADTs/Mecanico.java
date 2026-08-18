@@ -5,11 +5,12 @@ package ADTs;
  * Estructuras de Datos y Algoritmos - 2026-20
  *
  * María José Ledesma Cordoba - ID:000559241
+ * Miguel Angel Puente Mejia - ID:000559418
  */
 
 public class Mecanico {
 
-    public enum Especialidad {Motor, Frenos, Electricidad, Carroceria, Bujías}
+    enum Especialidad {Motor, Frenos, Electricidad, Carroceria, Bujías}
 
     private int id;
     private String nombre; //nombre completo
@@ -29,52 +30,57 @@ public class Mecanico {
 
     //Métodos
 
-    public void asignarOrden(OrdenReparacion orden){
+    public void asignarOrden(OrdenReparacion orden) {
 
-        if (orden == null) //Verifico que la orden que mehayn pasado sea válida
-            throw new IllegalArgumentException("La orden está vacía");
-
-        if ( ordenAsignada == null && estaDisponible() ){
-            ordenAsignada = orden;
-            disponible = false;
-        }
-        else {
-            throw new IllegalArgumentException("El mecánico está ocupado");
-        }
-
+    if (orden == null) {
+        throw new IllegalArgumentException(
+                "La orden no puede ser null"
+        );
     }
 
-    public void completarOrden(){
-        ordenAsignada = null;
-        this.disponible = true;
+    if (ordenAsignada == null && estaDisponible()) {
+        ordenAsignada = orden;
+        disponible = false;
+    } else {
+        throw new IllegalStateException(
+                "El mecánico está ocupado"
+        );
     }
+}
+
+    
+    public void completarOrden() {
+
+    if (ordenAsignada == null) {
+        throw new IllegalStateException(
+                "El mecánico no tiene una orden asignada"
+        );
+    }
+
+    ordenAsignada = null;
+    disponible = true;
+}
 
     public boolean estaDisponible() {
         return  disponible; //True si está disponible, false si no.
     }
 
-    public void marcarDisponibilidad(boolean disponibilidad){
+    public void marcarDisponibilidad(boolean disponibilidad) {
 
-        if (ordenAsignada != null && disponibilidad) //Exepción para  caso de que pongan disponibilidad y tenga caso
-        {
-            disponible = false;
-            System.out.println("Se no se cambió la disponibilidad por el estado de la orden");
-        }
-        else {
-            disponible = disponibilidad;
-        }
-
+    if (ordenAsignada != null && disponibilidad) {
+        throw new IllegalStateException(
+                "El mecánico no puede estar disponible porque tiene una orden asignada"
+        );
     }
 
-    public boolean isDisponible() {
-        return disponible;
-    }
+    this.disponible = disponibilidad;
+}
 
-    //Getters
     public int getId() {
         return id;
     }
 
+    //Getters
     public String getNombre() {
         return nombre;
     }

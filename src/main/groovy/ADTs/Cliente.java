@@ -5,6 +5,7 @@ package ADTs;
  * Estructuras de Datos y Algoritmos - 2026-20
  *
  * María José Ledesma Cordoba - ID:000559241
+ * Miguel Angel Puente Mejia - ID:000559418
  */
 
 class Cliente {
@@ -57,11 +58,14 @@ class Cliente {
     //Setters
 
     public void setNombre(String nombre) {
-        if (nombre.trim().isEmpty())
-            System.out.println("Error - el nombre no puede estar vacío");
-
-        this.nombre = nombre;
+    if (nombre == null || nombre.trim().isEmpty()) {
+        throw new IllegalArgumentException(
+                "El nombre no puede estar vacío"
+        );
     }
+
+    this.nombre = nombre;
+}
 
     public void setEmail(String email) {
         this.email = email;
