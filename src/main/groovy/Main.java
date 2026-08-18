@@ -119,8 +119,125 @@ try {
     assert true;
 }
 
-        // Pruebas de OrdenReparacion
-        // assert ...
+// Pruebas de OrdenReparacion
+
+Cliente clienteOrden = new Cliente(
+        "Ana López",
+        "3001112233",
+        "ana@gmail.com",
+        "ABC123"
+);
+
+Mecanico mecanicoOrden = new Mecanico(
+        "Carlos Gómez",
+        Mecanico.Especialidad.Motor
+);
+
+OrdenReparacion orden = new OrdenReparacion(
+        "Problema en el motor",
+        OrdenReparacion.Servicio.Motor,
+        clienteOrden,
+        null
+);
+
+// La orden debe iniciar en estado Recibida.
+// Se comprueba intentando asignar un mecánico.
+orden.asignarMecanico(mecanicoOrden);
+
+assert mecanicoOrden.getOrdenAsignada() == orden;
+assert !mecanicoOrden.estaDisponible();
+
+// Una orden ya asignada no puede recibir otro mecánico
+Mecanico otroMecanico = new Mecanico(
+        "Pedro Ruiz",
+        Mecanico.Especialidad.Electricidad
+);
+
+try {
+    orden.asignarMecanico(otroMecanico);
+    assert false : "No se debería poder asignar otro mecánico";
+} catch (IllegalStateException e) {
+    assert true;
+}
+
+// No se puede saltar de Asignada directamente a Reparada
+try {
+    orden.cambiarEstado(OrdenReparacion.Estado.Reparada);
+    assert false : "No se debería permitir saltar estados";
+} catch (IllegalStateException e) {
+    assert true;
+}
+
+// Asignada -> EnReparacion
+orden.cambiarEstado(OrdenReparacion.Estado.EnReparacion);
+
+// EnReparacion -> Reparada
+orden.cambiarEstado(OrdenReparacion.Estado.Reparada);
+
+// Reparada -> Entregada
+orden.cambiarEstado(OrdenReparacion.Estado.Entregada);
+
+// Una orden entregada no puede cambiar nuevamente de estado
+try {
+    orden.cambiarEstado(OrdenReparacion.Estado.Recibida);
+    assert false : "Una orden entregada no puede cambiar de estado";
+} catch (IllegalStateException e) {
+    assert true;
+}
+
+// No se puede asignar un mecánico null
+OrdenReparacion otraOrden = new OrdenReparacion(
+        "Cambio de llantas",
+        OrdenReparacion.Servicio.Llantas,
+        clienteOrden,
+        null
+);
+
+try {
+    otraOrden.asignarMecanico(null);
+    assert false : "No se debería permitir un mecánico null";
+} catch (IllegalArgumentException e) {
+    assert true;
+}
+
+// No se permite crear una orden con descripción vacía
+try {
+    new OrdenReparacion(
+            "",
+            OrdenReparacion.Servicio.Motor,
+            clienteOrden,
+            null
+    );
+    assert false : "No se debería permitir una descripción vacía";
+} catch (IllegalArgumentException e) {
+    assert true;
+}
+
+// No se permite crear una orden con servicio null
+try {
+    new OrdenReparacion(
+            "Revisión",
+            null,
+            clienteOrden,
+            null
+    );
+    assert false : "No se debería permitir un servicio null";
+} catch (IllegalArgumentException e) {
+    assert true;
+}
+
+// No se permite crear una orden con cliente null
+try {
+    new OrdenReparacion(
+            "Revisión",
+            OrdenReparacion.Servicio.Motor,
+            null,
+            null
+    );
+    assert false : "No se debería permitir un cliente null";
+} catch (IllegalArgumentException e) {
+    assert true;
+}
 
         // Pruebas de TallerSystem
         // assert ...
