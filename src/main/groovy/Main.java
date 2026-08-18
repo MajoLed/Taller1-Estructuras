@@ -257,20 +257,296 @@ try {
     assert true;
 }
 
-        // Pruebas de TallerSystem
-        // assert ...
+        // ===================== Pruebas de TallerSystem =====================
 
-        // Pruebas de Queue
-        // assert ...
+        TallerSystem taller = new TallerSystem();
 
-        // Pruebas de List
-        // assert ...
+        // Setup: tipos de servicio y mecánicos predefinidos
+        taller.agregarTipoServicio(OrdenReparacion.Servicio.Motor);
+        taller.agregarTipoServicio(OrdenReparacion.Servicio.Frenos);
+        taller.agregarTipoServicio(OrdenReparacion.Servicio.Electricidad);
 
-        // Pruebas de Bag
-        // assert ...
+        Mecanico mecMotor = new Mecanico("Luis Torres", Mecanico.Especialidad.Motor);
+        Mecanico mecFrenos = new Mecanico("Ana Ríos", Mecanico.Especialidad.Frenos);
+        taller.agregarMecanico(mecMotor);
+        taller.agregarMecanico(mecFrenos);
 
-        // Pruebas de los iteradores
-        // assert ...
+        Cliente clienteTaller = new Cliente("Sofía Rendón", "3005556677", "sofia@gmail.com", "TAL001");
+
+        // No se puede crear una orden con un tipo de servicio no registrado
+        try {
+            taller.crearOrden("Cambio de llantas", OrdenReparacion.Servicio.Llantas, clienteTaller);
+            assert false : "Debía lanzar IllegalArgumentException por tipo de servicio no registrado";
+        } catch (IllegalArgumentException e) {
+            assert true;
+        }
+
+        // Crear orden válida: debe quedar en 'todasLasOrdenes' y en la cola de pendientes
+        OrdenReparacion ordenMotor = taller.crearOrden("Ruido en el motor", OrdenReparacion.Servicio.Motor, clienteTaller);
+        assert ordenMotor.getEstadoActual() == OrdenReparacion.Estado.Recibida;
+        assert taller.totalOrdenes() == 1;
+
+        Iterator<OrdenReparacion> pendientesIniciales = taller.obtenerOrdenesPendientes();
+        assert pendientesIniciales.hasNext();
+        assert pendientesIniciales.next() == ordenMotor;
+
+        // Asignación automática: debe tomar la orden de la cola y asignarla al mecánico de Motor
+        OrdenReparacion asignada = taller.asignarOrdenAutomatica();
+        assert asignada == ordenMotor;
+        assert asignada.getEstadoActual() == OrdenReparacion.Estado.Asignada;
+        assert asignada.getMecanicoAsignado() == mecMotor;
+        assert !mecMotor.estaDisponible();
+        assert !taller.obtenerOrdenesPendientes().hasNext(); // la cola quedó vacía
+
+        // Si no hay mecánico disponible para el tipo de servicio, la orden vuelve a la cola
+        OrdenReparacion ordenFrenos1 = taller.crearOrden("Pastillas gastadas", OrdenReparacion.Servicio.Frenos, clienteTaller);
+        taller.asignarOrdenAutomatica(); // ocupa al único mecánico de Frenos
+        OrdenReparacion ordenFrenos2 = taller.crearOrden("Disco desgastado", OrdenReparacion.Servicio.Frenos, clienteTaller);
+        OrdenReparacion resultadoSinMecanico = taller.asignarOrdenAutomatica();
+        assert resultadoSinMecanico == null; // no había mecánico de Frenos disponible
+        assert ordenFrenos2.getEstadoActual() == OrdenReparacion.Estado.Recibida; // sigue pendiente
+
+        // asignarOrdenAutomatica() sobre cola vacía debe lanzar excepción
+        TallerSystem tallerVacio = new TallerSystem();
+        try {
+            tallerVacio.asignarOrdenAutomatica();
+            assert false : "Debía lanzar NoSuchElementException con la cola vacía";
+        } catch (java.util.NoSuchElementException e) {
+            assert true;
+        }
+
+        // Flujo completo: EnReparacion -> finalizar -> entregar, y verificar historial
+        taller.cambiarEstadoOrden(ordenMotor.getIdOrden(), OrdenReparacion.Estado.EnReparacion);
+        taller.finalizarOrden(ordenMotor.getIdOrden());
+        assert ordenMotor.getEstadoActual() == OrdenReparacion.Estado.Reparada;
+        assert mecMotor.estaDisponible(); // finalizarOrden debe liberar al mecánico
+
+        taller.entregarOrden(ordenMotor.getIdOrden());
+        assert ordenMotor.getEstadoActual() == OrdenReparacion.Estado.Entregada;
+
+        Iterator<OrdenReparacion> historialTaller = taller.obtenerHistorial();
+        assert historialTaller.hasNext();
+        assert historialTaller.next() == ordenMotor; // única orden finalizada hasta ahora
+
+        // No se puede finalizar una orden que no está EnReparacion (aunque tenga mecánico)
+        try {
+            taller.finalizarOrden(ordenFrenos1.getIdOrden()); // está en 'Asignada', no en 'EnReparacion'
+            assert false : "Debía lanzar IllegalStateException: la orden no está EnReparacion";
+        } catch (IllegalStateException e) {
+            assert true;
+        }
+
+        // Operar sobre un id de orden inexistente debe lanzar excepción
+        try {
+            taller.cambiarEstadoOrden(999999, OrdenReparacion.Estado.Asignada);
+            assert false : "Debía lanzar NoSuchElementException por id inexistente";
+        } catch (java.util.NoSuchElementException e) {
+            assert true;
+        }
+
+        // asignarOrdenManual: no se puede asignar a un mecánico ocupado
+        try {
+            taller.asignarOrdenManual(ordenFrenos2, mecFrenos); // mecFrenos sigue ocupado con ordenFrenos1
+            assert false : "Debía lanzar IllegalStateException: mecánico ocupado";
+        } catch (IllegalStateException e) {
+            assert true;
+        }
+
+        // obtenerOrdenesPorEstado / obtenerOrdenesPorTipo (usan Bag.iteradorFiltrado)
+        int contadorRecibidas = 0;
+        Iterator<OrdenReparacion> recibidas = taller.obtenerOrdenesPorEstado(OrdenReparacion.Estado.Recibida);
+        while (recibidas.hasNext()) {
+            assert recibidas.next().getEstadoActual() == OrdenReparacion.Estado.Recibida;
+            contadorRecibidas++;
+        }
+        assert contadorRecibidas == 1; // solo ordenFrenos2
+
+        int contadorFrenos = 0;
+        Iterator<OrdenReparacion> porTipoFrenos = taller.obtenerOrdenesPorTipo(OrdenReparacion.Servicio.Frenos);
+        while (porTipoFrenos.hasNext()) {
+            assert porTipoFrenos.next().getTipoServicio() == OrdenReparacion.Servicio.Frenos;
+            contadorFrenos++;
+        }
+        assert contadorFrenos == 2; // ordenFrenos1 y ordenFrenos2
+
+        // obtenerOrdenDeMecanico
+        assert taller.obtenerOrdenDeMecanico(mecFrenos) == ordenFrenos1;
+        assert taller.obtenerOrdenDeMecanico(mecMotor) == null; // ya fue liberado
+
+        // generarEstadisticas: total de órdenes por estado debe sumar el total de órdenes
+        Map<OrdenReparacion.Estado, Integer> estadisticas = taller.generarEstadisticas();
+        int sumaEstadisticas = 0;
+        for (int cantidad : estadisticas.values()) {
+            sumaEstadisticas += cantidad;
+        }
+        assert sumaEstadisticas == taller.totalOrdenes();
+        assert estadisticas.get(OrdenReparacion.Estado.Entregada) == 1; // ordenMotor
+
+        // No se puede crear un mecánico/tipo null
+        try {
+            taller.agregarMecanico(null);
+            assert false : "Debía lanzar IllegalArgumentException";
+        } catch (IllegalArgumentException e) {
+            assert true;
+        }
+
+        // ===================== Pruebas de Queue =====================
+
+        Queue<String> cola = new Queue<>();
+
+        assert cola.esVacia();
+        assert cola.tamano() == 0;
+
+        cola.encolar("Orden-1");
+        cola.encolar("Orden-2");
+        cola.encolar("Orden-3");
+
+        assert cola.tamano() == 3;
+        assert !cola.esVacia();
+        assert cola.verFrente().equals("Orden-1"); // FIFO: la primera en entrar es la primera al frente
+
+        assert cola.desencolar().equals("Orden-1");
+        assert cola.tamano() == 2;
+        assert cola.verFrente().equals("Orden-2");
+
+        // No se puede encolar null
+        try {
+            cola.encolar(null);
+            assert false : "Debía lanzar IllegalArgumentException";
+        } catch (IllegalArgumentException e) {
+            assert true;
+        }
+
+        // Vaciar la cola y validar excepción al desencolar/verFrente sobre cola vacía
+        cola.desencolar();
+        cola.desencolar();
+        assert cola.esVacia();
+
+        try {
+            cola.desencolar();
+            assert false : "Debía lanzar NoSuchElementException";
+        } catch (java.util.NoSuchElementException e) {
+            assert true;
+        }
+
+        try {
+            cola.verFrente();
+            assert false : "Debía lanzar NoSuchElementException";
+        } catch (java.util.NoSuchElementException e) {
+            assert true;
+        }
+
+        // ===================== Pruebas de List =====================
+
+        List<String> historialLista = new List<>();
+
+        assert historialLista.estaVacia();
+
+        // Simulamos 3 órdenes finalizándose en orden cronológico
+        historialLista.agregarInicio("Orden-A (finalizada primero)");
+        historialLista.agregarInicio("Orden-B (finalizada segundo)");
+        historialLista.agregarInicio("Orden-C (finalizada tercero)");
+
+        assert historialLista.tamano() == 3;
+        // La más reciente (Orden-C) debe quedar de primera en el historial
+        assert historialLista.obtener(0).equals("Orden-C (finalizada tercero)");
+        assert historialLista.obtener(2).equals("Orden-A (finalizada primero)");
+
+        try {
+            historialLista.obtener(10);
+            assert false : "Debía lanzar IndexOutOfBoundsException";
+        } catch (IndexOutOfBoundsException e) {
+            assert true;
+        }
+
+        try {
+            historialLista.agregarInicio(null);
+            assert false : "Debía lanzar IllegalArgumentException";
+        } catch (IllegalArgumentException e) {
+            assert true;
+        }
+
+        List<Integer> listaOrdenAlFinal = new List<>();
+        listaOrdenAlFinal.agregarFinal(1);
+        listaOrdenAlFinal.agregarFinal(2);
+        listaOrdenAlFinal.agregarFinal(3);
+        assert listaOrdenAlFinal.obtener(0) == 1 && listaOrdenAlFinal.obtener(2) == 3;
+
+        // ===================== Pruebas de Bag =====================
+
+        Bag<String> tiposServicioBag = new Bag<>();
+
+        assert tiposServicioBag.estaVacia();
+
+        tiposServicioBag.agregar("Motor");
+        tiposServicioBag.agregar("Frenos");
+        tiposServicioBag.agregar("Electricidad");
+
+        assert tiposServicioBag.tamano() == 3;
+        assert tiposServicioBag.contiene("Frenos");
+        assert !tiposServicioBag.contiene("Suspensión");
+
+        try {
+            tiposServicioBag.agregar(null);
+            assert false : "Debía lanzar IllegalArgumentException";
+        } catch (IllegalArgumentException e) {
+            assert true;
+        }
+
+        // Forzar redimensionamiento interno del arreglo (capacidad inicial = 10)
+        Bag<Integer> bolsaGrande = new Bag<>();
+        for (int i = 0; i < 25; i++) {
+            bolsaGrande.agregar(i);
+        }
+        assert bolsaGrande.tamano() == 25;
+        assert bolsaGrande.contiene(24);
+
+         // ===================== Pruebas de los iteradores =====================
+
+        // Iterador de Queue: debe respetar el orden FIFO y no vaciar la cola (solo lectura)
+        Queue<Integer> colaIter = new Queue<>();
+        colaIter.encolar(10);
+        colaIter.encolar(20);
+        colaIter.encolar(30);
+
+        int sumaEsperada = 0;
+        int cantidadRecorrida = 0;
+        for (int valor : colaIter) {
+            sumaEsperada += valor;
+            cantidadRecorrida++;
+        }
+        assert sumaEsperada == 60;
+        assert cantidadRecorrida == 3;
+        assert colaIter.tamano() == 3; // el iterador no debe alterar la cola
+
+        // Iterador de List: debe recorrer el historial de más reciente a más antigua
+        StringBuilder ordenRecorrido = new StringBuilder();
+        for (String item : historialLista) {
+            ordenRecorrido.append(item.charAt(6)); // toma la letra (A, B o C)
+        }
+        assert ordenRecorrido.toString().equals("CBA");
+
+        // Iterador filtrado de Bag: simula obtenerOrdenesPorEstado()/obtenerOrdenesPorTipo()
+        Bag<Integer> numeros = new Bag<>();
+        for (int i = 1; i <= 10; i++) {
+            numeros.agregar(i);
+        }
+
+        Iterator<Integer> pares = numeros.iteradorFiltrado(n -> n % 2 == 0);
+        int contadorPares = 0;
+        int sumaPares = 0;
+        while (pares.hasNext()) {
+            int p = pares.next();
+            assert p % 2 == 0;
+            sumaPares += p;
+            contadorPares++;
+        }
+        assert contadorPares == 5;
+        assert sumaPares == 30; // 2+4+6+8+10
+
+        // Un filtro que no matchea nada debe dar un iterador vacío, no un error
+        Iterator<Integer> ninguno = numeros.iteradorFiltrado(n -> n > 1000);
+        assert !ninguno.hasNext();
 
     }
 }
