@@ -29,38 +29,51 @@ public class Mecanico {
 
     //Métodos
 
-    public void asignarOrden(OrdenReparacion orden){
+    public void asignarOrden(OrdenReparacion orden) {
 
-        if ( ordenAsignada == null && estaDisponible() ){
-            ordenAsignada = orden;
-            disponible = false;
-        }
-        else {
-            System.out.println("El mecanico está ocupado");
-        }
+    if (orden == null) {
+        throw new IllegalArgumentException(
+                "La orden no puede ser null"
+        );
     }
 
-    public void completarOrden(){
-        ordenAsignada = null;
-        this.disponible = true;
+    if (ordenAsignada == null && estaDisponible()) {
+        ordenAsignada = orden;
+        disponible = false;
+    } else {
+        throw new IllegalStateException(
+                "El mecánico está ocupado"
+        );
     }
+}
+
+    
+    public void completarOrden() {
+
+    if (ordenAsignada == null) {
+        throw new IllegalStateException(
+                "El mecánico no tiene una orden asignada"
+        );
+    }
+
+    ordenAsignada = null;
+    disponible = true;
+}
 
     public boolean estaDisponible() {
         return  disponible; //True si está disponible, false si no.
     }
 
-    public void marcarDisponibilidad(boolean disponibilidad){
+    public void marcarDisponibilidad(boolean disponibilidad) {
 
-        if (ordenAsignada != null && disponibilidad) //Exepción para  caso de que pongan disponibilidad y tenga caso
-        {
-            disponible = false;
-            System.out.println("Se no se cambió la disponibilidad por el estado de la orden");
-        }
-        else {
-            disponible = disponibilidad;
-        }
-
+    if (ordenAsignada != null && disponibilidad) {
+        throw new IllegalStateException(
+                "El mecánico no puede estar disponible porque tiene una orden asignada"
+        );
     }
+
+    this.disponible = disponibilidad;
+}
 
     public int getId() {
         return id;
